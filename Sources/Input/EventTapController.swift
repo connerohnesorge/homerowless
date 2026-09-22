@@ -43,6 +43,8 @@ private let tapCallback: CGEventTapCallBack = { proxy, type, event, refcon in
     let ch = kind == .flags ? nil : ctx.translator.character(keyCode: keyCode)
     let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
     ctx.sink(KeyInput(kind: kind, keyCode: keyCode, character: ch, flags: flags, isRepeat: isRepeat))
+    // Let our own hotkey chords through in every mode so Cmd-J / Cmd-Shift-F toggle the mode off.
+    if flags.contains(.maskCommand) && snap.hotkeyKeyCodes.contains(keyCode) { return Unmanaged.passUnretained(event) }
     switch snap.tag {
     case .idle: return Unmanaged.passUnretained(event)
     case .scanning, .hinting, .grid:

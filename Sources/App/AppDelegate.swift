@@ -84,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let hk = Hotkey(c.clickHotkey) {
             hotkeys.register(hk) { DispatchQueue.main.async { [weak self] in self?.coordinator.clickHotkeyPressed() } }
         } else { toast("Bad clickHotkey \"\(c.clickHotkey)\"") }
+        coordinator.hotkeyKeyCodes = Set([Hotkey(c.clickHotkey), Hotkey(c.scrollHotkey)].compactMap { $0 }.map { UInt16($0.keyCode) })
         Diag.log("hotkeys registered: \(c.clickHotkey), \(c.scrollHotkey)")
         if let hk = Hotkey(c.scrollHotkey) {
             hotkeys.register(hk) { DispatchQueue.main.async { [weak self] in self?.coordinator.scrollHotkeyPressed() } }

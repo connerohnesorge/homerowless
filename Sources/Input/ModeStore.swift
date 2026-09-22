@@ -9,6 +9,9 @@ public struct ModeSnapshot: Sendable, Equatable {
     public var alphabet: Set<Character> = []
     /// Consume every key while active (hint modes). Scroll mode also consumes its bound keys.
     public var scrollKeys: Set<Character> = ["h", "j", "k", "l", "d", "u", "g", "G"]
+    /// Virtual key codes of the registered hotkeys. Command-chords on these pass through so the Carbon hotkey can
+    /// toggle the mode off; every other key is still consumed.
+    public var hotkeyKeyCodes: Set<UInt16> = []
     public init() {}
 }
 

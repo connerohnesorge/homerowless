@@ -32,6 +32,8 @@ public final class ModeCoordinator {
     public var onToast: ((String) -> Void)?
     public var onMenuBarWarning: ((Bool) -> Void)?
     public var onOpenOnboarding: (() -> Void)?
+    /// Key codes of the registered hotkeys, published to the tap snapshot.
+    public var hotkeyKeyCodes: Set<UInt16> = [] { didSet { publishSnapshot() } }
 
     private let store: ModeStore
     private let tap: EventTapController
@@ -100,6 +102,7 @@ public final class ModeCoordinator {
         case .up:
             if case .scrolling = state, let c = k.character, "hjkl".contains(c) { scroller.stop() }
         case .down:
+            if k.flags.contains(.maskCommand) { return }   // hotkey chords are handled by HotkeyManager
             if k.isRepeat, case .scrolling = state { return }
             handle(.key(k.character, keyCode: k.keyCode, flags: k.flags.rawValue))
         }
@@ -118,6 +121,7 @@ public final class ModeCoordinator {
     private func publishSnapshot() {
         var s = ModeSnapshot()
         s.alphabet = Set(config.alphabet)
+        s.hotkeyKeyCodes = hotkeyKeyCodes
         switch state {
         case .idle, .blocked: s.tag = .idle
         case .scanning: s.tag = .scanning
