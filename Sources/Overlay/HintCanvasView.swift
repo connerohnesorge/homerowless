@@ -75,7 +75,7 @@ public final class HintCanvasView: NSView {
     }
 
     private func drawHints(_ hints: [Hint], typed: String, dim: Bool, ctx: CGContext, anchorCenter: Bool) {
-        let padX: CGFloat = 4, padY: CGFloat = 2
+        let padX: CGFloat = 5, padY: CGFloat = 3
         for h in hints {
             let matches = h.label.hasPrefix(typed)
             if !matches && !dim { continue }

@@ -14,7 +14,7 @@ public enum RenderModel: Sendable, Equatable {
 }
 
 public struct HintAppearance: Sendable, Hashable, Codable {
-    public var fontSize: CGFloat = 11
+    public var fontSize: CGFloat = 13
     public var fontName: String = "Menlo-Bold"
     public var background: String = "#F5D95AEE"
     public var foreground: String = "#1A1A1A"
