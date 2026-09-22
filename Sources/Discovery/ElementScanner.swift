@@ -11,6 +11,12 @@ public struct ScanStats: Sendable {
     public var elapsed: TimeInterval = 0
     public var timedOut = false
     public var levels = 0
+    /// Allowlisted-role nodes rejected only because their frame was ≤1pt tall. Chromium reports these while its
+    /// accessibility tree is still being built; a high ratio means "scan again shortly".
+    public var collapsed = 0
+    /// Nodes whose probe batch failed (subtree dropped), and the first AXError raw value seen.
+    public var batchFailed = 0
+    public var firstError: Int32 = 0
     public init() {}
 }
 
@@ -34,6 +40,8 @@ public actor ElementScanner {
         var children: [Node]
         var pruned: Bool
         var usedActionQuery: Bool
+        var collapsed = false
+        var failed: Int32? = nil
     }
 
     /// Streams one batch per BFS level. The final batch is followed by stream termination; `stats` is filled after.
@@ -63,6 +71,8 @@ public actor ElementScanner {
                     stats.visited += 1
                     if v.usedActionQuery { actionBudget -= 1; stats.actionQueries += 1 }
                     if v.pruned { stats.pruned += 1 }
+                    if v.collapsed { stats.collapsed += 1 }
+                    if let e = v.failed { stats.batchFailed += 1; if stats.firstError == 0 { stats.firstError = e } }
                     if let f = v.found { levelFound.append(f) }
                     for c in v.children where !seen.contains(c.el) {
                         seen.insert(c.el)
@@ -116,7 +126,11 @@ public actor ElementScanner {
             role = n.el.role; subrole = n.el.subrole; enabled = n.el.bool(.enabled); frame = n.el.frame()
             kids = n.el.children(.children, limit: policy.maxChildrenPerNode)
         } else {
-            guard let b = AXBatch.batch(n.el) else { return Visit(found: nil, children: [], pruned: false, usedActionQuery: false) }
+            guard let b = AXBatch.batch(n.el) else {
+                var v = Visit(found: nil, children: [], pruned: false, usedActionQuery: false)
+                v.failed = AXBatch.lastError(n.el)
+                return v
+            }
             role = b.role; subrole = b.subrole; enabled = b.enabled; frame = b.frame
             if frame == nil { frame = n.el.frame() }
             if let c = b.children {
@@ -157,7 +171,10 @@ public actor ElementScanner {
         // Don't descend into text fields / menu bars; they are leaves for our purposes.
         if role == "AXTextField" || role == "AXTextArea" || role == "AXMenuBar" || role == "AXSlider" { kids = [] }
         let children = kids.map { Node(el: $0, depth: n.depth + 1, clip: clip, parentRole: role) }
-        return Visit(found: found, children: children, pruned: pruned, usedActionQuery: usedAQ)
+        var v = Visit(found: found, children: children, pruned: pruned, usedActionQuery: usedAQ)
+        if found == nil, let r = role, let f = frame, f.height <= 1, f.width > 1,
+           ActionableClassifier.allowedRoles.contains(r) || r == "AXStaticText" { v.collapsed = true }
+        return v
     }
 
     private func visibleChildrenSupported(key: String, el: AXElement) -> Bool {

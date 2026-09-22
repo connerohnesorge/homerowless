@@ -18,8 +18,9 @@ public enum ActionableClassifier {
     public static let clippingRoles: Set<String> = [
         "AXScrollArea", "AXGroup", "AXList", "AXTable", "AXOutline", "AXBrowser", "AXSplitGroup", "AXRow", "AXTabGroup",
     ]
-    /// Parents under which AXStaticText counts as clickable.
-    public static let clickableContainers: Set<String> = ["AXButton", "AXLink", "AXMenuItem", "AXCell", "AXRow", "AXPopUpButton", "AXCheckBox", "AXRadioButton", "AXTabButton"]
+    /// Parents under which AXStaticText counts as clickable. Rows and cells are excluded: the row itself is hinted,
+    /// and hinting its text child too produces two stacked hints per sidebar item.
+    public static let clickableContainers: Set<String> = ["AXButton", "AXLink", "AXMenuItem", "AXPopUpButton", "AXCheckBox", "AXRadioButton", "AXTabButton"]
     /// Roles that only count when their parent is a table/outline/list.
     public static let rowRoles: Set<String> = ["AXRow", "AXCell"]
 

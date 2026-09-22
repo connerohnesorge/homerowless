@@ -63,6 +63,14 @@ extension AXElement {
     }
 }
 
+extension AXElement {
+    /// The application that owns keyboard focus, per the window server. More current than NSWorkspace.frontmostApplication
+    /// in an accessory app, whose notification queue can lag.
+    public static func focusedApplicationPID() -> pid_t? {
+        AXUnwrap.element(systemWide.copyRaw("AXFocusedApplication"))?.pid
+    }
+}
+
 public enum AXTimeouts {
     public static let defaultSeconds: Float = 0.25
     /// Sets the process-global default (system-wide element) and is also applied per app element by callers.

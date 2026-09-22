@@ -57,9 +57,14 @@ public final class ModeCoordinator {
         self.store = store; self.tap = tap; self.overlay = overlay
         overlay.onScreensChanged = { [weak self] in self?.handle(.contextInvalidated) }
         let ws = NSWorkspace.shared.notificationCenter
-        ws.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.handle(.contextInvalidated) }
+        ws.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] n in
+            let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            MainActor.assumeIsolated {
+                self?.handle(.contextInvalidated)
+                if let app { self?.warmUp(app) }
+            }
         }
+        if let front = NSWorkspace.shared.frontmostApplication { warmUp(front) }
         ws.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             if let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
                 self?.compat.forget(pid: app.processIdentifier)
@@ -67,10 +72,16 @@ public final class ModeCoordinator {
         }
     }
 
+    /// Window-server truth first; NSWorkspace as fallback.
+    private func frontApp() -> NSRunningApplication? {
+        if let pid = AXElement.focusedApplicationPID(), let app = NSRunningApplication(processIdentifier: pid) { return app }
+        return NSWorkspace.shared.frontmostApplication
+    }
+
     // MARK: entry points
     public func clickHotkeyPressed() {
         Diag.log("click hotkey")
-        let front = NSWorkspace.shared.frontmostApplication
+        let front = frontApp()
         let excluded = front?.bundleIdentifier.map { config.excludedBundleIDs.contains($0) } ?? false
         handle(.clickHotkey(trusted: AXTrust.isTrusted, secureInput: SecureInputMonitor.isActive, excluded: excluded))
     }
@@ -158,9 +169,31 @@ public final class ModeCoordinator {
         }
     }
 
+    /// Chromium builds its web accessibility tree lazily, on the first AX traffic, and the first pass returns a stub.
+    /// Traverse it in the background as soon as a Chromium app comes to the front so the hotkey finds a warm tree.
+    private var warmTask: Task<Void, Never>?
+    private func warmUp(_ app: NSRunningApplication) {
+        guard AppCompat.isChromiumLike(bundleURL: app.bundleURL) else { return }
+        guard app.bundleIdentifier.map({ !config.excludedBundleIDs.contains($0) }) ?? true else { return }
+        warmTask?.cancel()
+        let layout = overlay.layout, scanner = self.scanner, pid = app.processIdentifier
+        warmTask = Task.detached(priority: .utility) {
+            for attempt in 0..<3 {
+                if Task.isCancelled { return }
+                let ax = AXApplication(pid: pid)
+                guard let w = ax.focusedWindow(), let f = w.frame() else { return }
+                let window = AXWindow(pid: pid, element: w, frame: layout.clamp(f))
+                let (els, stats) = await scanner.scanAll(window: window, clip: layout.unionAX)
+                Diag.log("warmup pid=\(pid) attempt=\(attempt) elements=\(els.count) visited=\(stats.visited)")
+                if stats.visited >= 60 && els.count >= 5 { return }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+        }
+    }
+
     // MARK: scanning
     private func frontWindow() -> (AXWindow, NSRunningApplication)? {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        guard let app = frontApp() else { return nil }
         let ax = AXApplication(pid: app.processIdentifier)
         guard let w = ax.focusedWindow(), let f = w.frame() else { return nil }
         let clamped = overlay.layout.clamp(f)
@@ -175,7 +208,8 @@ public final class ModeCoordinator {
         let cfg = config
         let scanner = self.scanner
         let compat = self.compat
-        let front = NSWorkspace.shared.frontmostApplication
+        let front = frontApp()
+        Diag.log("front app: \(front?.localizedName ?? "nil") (workspace says \(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil"))")
         let forceGrid = front?.bundleIdentifier.map { cfg.gridForcedBundleIDs.contains($0) } ?? false
         let voiceOver = NSWorkspace.shared.isVoiceOverEnabled
         timeoutTask?.cancel()
@@ -207,8 +241,16 @@ public final class ModeCoordinator {
                 await self?.batchArrived(frames)
             }
             var stats = await statsTask.value
-            // Settle-and-retry: a Chromium tree that was just enabled returns a stub on the first pass.
-            if outcome == .setManual && all.count < 3 {
+            // Settle-and-retry. Chromium builds its accessibility tree lazily after it sees AX traffic: the first pass
+            // returns a stub (few elements) or collapsed 1pt frames. Re-scan a few times while that is the case.
+            let chromium = AppCompat.isChromiumLike(bundleURL: front.bundleURL)
+            Diag.log("first pass: chromium=\(chromium) visited=\(stats.visited) elements=\(all.count) collapsed=\(stats.collapsed)")
+            if chromium && stats.visited < 60 { Diag.log("tree:\n" + TreeDump.brief(window.element)) }
+            var attempt = 0
+            while chromium, attempt < 4, !Task.isCancelled,
+                  (stats.visited < 60 || all.count < 5 || stats.collapsed > max(3, all.count)) {
+                attempt += 1
+                Diag.log("chromium settle: attempt \(attempt), collapsed=\(stats.collapsed), elements=\(all.count)")
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 let (s2, t2) = await scanner.scan(window: window, clip: layout.unionAX)
                 all = []
@@ -224,7 +266,7 @@ public final class ModeCoordinator {
             let count = deduped.count
             let vis = stats.visited
             let isGrid = grid
-            await self?.scanFinished(deduped, grid: isGrid, window: window, note: "scan: \(count) elements, visited \(vis), \(ms)ms, grid=\(isGrid)")
+            await self?.scanFinished(deduped, grid: isGrid, window: window, note: "scan: \(count) elements, visited \(vis), \(ms)ms, grid=\(isGrid), collapsed=\(stats.collapsed), batchFailed=\(stats.batchFailed), err=\(stats.firstError), window=\(window.frame)")
         }
     }
 
@@ -313,7 +355,7 @@ public final class ModeCoordinator {
         savedCursor = CGEvent(source: nil)?.location
         let layout = overlay.layout
         Task.detached(priority: .userInitiated) { [weak self] in
-            guard let app = NSWorkspace.shared.frontmostApplication else { return }
+            guard let app = await self?.frontApp() else { return }
             let ax = AXApplication(pid: app.processIdentifier)
             guard let w = ax.focusedWindow(), let f = w.frame() else { return }
             let window = AXWindow(pid: app.processIdentifier, element: w, frame: layout.clamp(f))

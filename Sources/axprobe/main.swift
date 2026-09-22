@@ -112,7 +112,7 @@ Task.detached {
     case "scan":
         guard let app = resolveApp(args), let w = focusedWindow(app) else { print("no focused window"); return }
         let r = await runScan(w, naive: args.naive, repeatN: args.repeatN)
-        print("# \(app.localizedName ?? "?") elements=\(r.count) visited=\(r.stats.visited) pruned=\(r.stats.pruned) aq=\(r.stats.actionQueries) levels=\(r.stats.levels) timedOut=\(r.stats.timedOut)")
+        print("# \(app.localizedName ?? "?") elements=\(r.count) visited=\(r.stats.visited) pruned=\(r.stats.pruned) aq=\(r.stats.actionQueries) levels=\(r.stats.levels) timedOut=\(r.stats.timedOut) collapsed=\(r.stats.collapsed) batchFailed=\(r.stats.batchFailed) err=\(r.stats.firstError)")
         print(String(format: "# p50=%.1fms p95=%.1fms max=%.1fms (n=%d, %@)", r.p50, r.p95, r.max, args.repeatN, args.naive ? "naive" : "optimized"))
     case "bench":
         let names = args.apps.isEmpty ? ["Finder", "Safari", "Mail", "Slack", "Code", "Xcode", "Google Chrome"] : args.apps

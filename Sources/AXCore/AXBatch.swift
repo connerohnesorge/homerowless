@@ -23,6 +23,11 @@ public struct AnyCF: @unchecked Sendable {
 }
 
 public enum AXBatch {
+    /// Diagnostic: re-issue a single role fetch and return its AXError raw value.
+    public static func lastError(_ e: AXElement) -> Int32 {
+        var out: CFTypeRef?
+        return AXUIElementCopyAttributeValue(e.ref, AXAttribute.role.cf, &out).rawValue
+    }
     public static let probeAttributes: [AXAttribute] = [.role, .subrole, .frame, .enabled, .children]
 
     public static func batch(_ e: AXElement, _ attrs: [AXAttribute] = probeAttributes) -> AXBatchResult? {
