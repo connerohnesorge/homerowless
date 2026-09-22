@@ -81,10 +81,15 @@ public final class ScrollSynthesizer: @unchecked Sendable {
         post(wheel1: total, wheel2: 0, units: .pixel, at: p, continuous: true)
     }
 
-    /// gg / G: exact via AXVerticalScrollBar value; fallback line burst where no scrollbar is exposed (Chromium).
+    /// gg / G: exact via AXVerticalScrollBar value. Where no scrollbar is exposed (Chromium web content) synthesize
+    /// Home / End, which browsers and NSScrollView map to top / bottom. A single huge wheel event is clamped by Chrome.
     public func jump(toTop: Bool, area: AXElement?, scrollBar: AXElement?) {
         if let bar = scrollBar, bar.set(.value, double: toTop ? 0.0 : 1.0) == .success { return }
-        let p = lock.withLock { $0.point }
-        post(wheel1: toTop ? 100_000 : -100_000, wheel2: 0, units: .line, at: p, continuous: false)
+        let key: CGKeyCode = toTop ? 115 : 119   // Home / End
+        for down in [true, false] {
+            guard let e = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: down) else { continue }
+            e.flags = []
+            e.post(tap: .cghidEventTap)
+        }
     }
 }
