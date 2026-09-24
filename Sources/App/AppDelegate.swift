@@ -6,6 +6,7 @@ import Input
 import Modes
 import Overlay
 import os
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -22,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var permissionTimer: Timer?
     private var lastTrusted = false
     private var toastTask: Task<Void, Never>?
+    // Feed and EdDSA key come from Info.plist (SUFeedURL, SUPublicEDKey).
+    private let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     func applicationDidFinishLaunching(_ n: Notification) {
         NSApp.setActivationPolicy(.accessory)   // LaunchServices caches LSUIElement by path+mtime; belt and braces
@@ -48,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.open(self.configStore.url)
         }
         menu.onOnboarding = { [weak self] in self?.onboarding.show() }
+        menu.onCheckForUpdates = { [weak self] in self?.updater.checkForUpdates(nil) }
         menu.onDebugHints = { [weak self] in self?.debugHints() }
         menu.onForceGrid = { [weak self] in
             guard let self else { return }

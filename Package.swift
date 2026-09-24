@@ -8,6 +8,9 @@ let package = Package(
         .executable(name: "App", targets: ["App"]),
         .executable(name: "axprobe", targets: ["axprobe"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         .target(name: "Geometry"),
         .target(name: "AXCore", dependencies: ["Geometry"]),
@@ -17,7 +20,12 @@ let package = Package(
         .target(name: "Overlay", dependencies: ["Geometry", "Hints"]),
         .target(name: "Input", dependencies: ["Geometry", "AXCore"]),
         .target(name: "Modes", dependencies: ["Input", "Overlay", "Hints", "Discovery", "Routing", "AXCore", "Geometry"]),
-        .executableTarget(name: "App", dependencies: ["Modes", "Input", "Overlay", "Hints", "Discovery", "Routing", "AXCore", "Geometry"]),
+        .executableTarget(
+            name: "App",
+            dependencies: ["Modes", "Input", "Overlay", "Hints", "Discovery", "Routing", "AXCore", "Geometry",
+                           .product(name: "Sparkle", package: "Sparkle")],
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
+        ),
         .executableTarget(name: "axprobe", dependencies: ["AXCore", "Geometry", "Discovery"]),
         .testTarget(name: "GeometryTests", dependencies: ["Geometry"]),
         .testTarget(name: "HintsTests", dependencies: ["Hints"]),

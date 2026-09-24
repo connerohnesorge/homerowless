@@ -9,6 +9,7 @@ final class MenuBarController {
     var onOpenConfig: (() -> Void)?
     var onOnboarding: (() -> Void)?
     var onForceGrid: (() -> Void)?
+    var onCheckForUpdates: (() -> Void)?
 
     init() {
         setWarning(false)
@@ -24,6 +25,7 @@ final class MenuBarController {
         let login = item(title: "Launch at Login", #selector(toggleLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         m.addItem(login)
+        m.addItem(item(title: "Check for Updates…", #selector(checkForUpdates)))
         m.addItem(.separator())
         m.addItem(item(title: "Debug: render synthetic label grid (3s)", #selector(debugHints)))
         m.addItem(item(title: "Debug: force grid on next activation", #selector(forceGrid)))
@@ -44,6 +46,7 @@ final class MenuBarController {
     @objc private func onboarding() { onOnboarding?() }
     @objc private func debugHints() { onDebugHints?() }
     @objc private func forceGrid() { onForceGrid?() }
+    @objc private func checkForUpdates() { onCheckForUpdates?() }
     @objc private func toggleLogin(_ sender: NSMenuItem) {
         do {
             if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister(); sender.state = .off }

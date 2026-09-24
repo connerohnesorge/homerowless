@@ -16,5 +16,9 @@
 	<key>NSHighResolutionCapable</key><true/>
 	<key>NSPrincipalClass</key><string>NSApplication</string>
 	<key>NSHumanReadableCopyright</key><string>MIT</string>
+	<key>SUFeedURL</key><string>https://github.com/connerohnesorge/homerowless/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key><string>MKoTzmxnThgT0NiQbG929GMFHD2dq4ReKDqXD9d1du4=</string>
+	<key>SUEnableAutomaticChecks</key><true/>
+	<key>SUScheduledCheckInterval</key><integer>86400</integer>
 </dict>
 </plist>

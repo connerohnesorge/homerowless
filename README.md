@@ -11,13 +11,29 @@ homerowless needs only **Accessibility**. All geometry comes from the Accessibil
 
 ## Install
 
+Download `homerowless-<version>.zip` from the [latest release](https://github.com/connerohnesorge/homerowless/releases/latest), unzip, and move `homerowless.app` to `/Applications`. Releases are signed with a self-signed certificate, not an Apple Developer ID, so Gatekeeper blocks the first launch. Clear the quarantine flag once:
+
 ```sh
-git clone https://github.com/connerohnesorge/homerowless && cd homerowless
-scripts/build-app.sh            # dist/homerowless.app, ad-hoc signed
-open dist/homerowless.app       # grant Accessibility when prompted
+xattr -dr com.apple.quarantine /Applications/homerowless.app
+open /Applications/homerowless.app   # grant Accessibility when prompted
 ```
 
 Config lives at `~/.config/homerowless/config.json`, written fully populated on first run and hot-reloaded.
+
+### Updates
+
+The app checks the GitHub release feed daily with [Sparkle](https://sparkle-project.org) and offers new versions. Use **Check for Updates…** in the menu bar to check now. Updates are verified with an EdDSA signature and must carry the same code signature as the installed app, so the Accessibility grant survives updates.
+
+### Build from source
+
+```sh
+git clone https://github.com/connerohnesorge/homerowless && cd homerowless
+scripts/build-app.sh            # dist/homerowless.app, ad-hoc signed
+```
+
+## Releasing
+
+Push a `vX.Y.Z` tag. `.github/workflows/release.yml` runs the tests, builds a universal app, signs it with the `homerowless Release` certificate, generates the Sparkle `appcast.xml`, and publishes both to a GitHub release. Required repository secrets: `MACOS_CERT_P12`, `MACOS_CERT_PASSWORD`, `SPARKLE_ED_PRIVATE_KEY`.
 
 ## Developing
 
