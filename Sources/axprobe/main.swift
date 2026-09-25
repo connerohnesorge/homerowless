@@ -137,11 +137,11 @@ Task.detached {
         print("# \(app.localizedName ?? "?") bundle=\(app.bundleIdentifier ?? "?") chromiumLike=\(chromium)")
         guard let w = focusedWindow(app) else { print("no focused window"); return }
         let before = await runScan(w, naive: false, repeatN: 3, quiet: true)
-        print(String(format: "before AXManualAccessibility: elements=%d visited=%d p50=%.1fms", before.count, before.stats.visited, before.p50))
+        print(String(format: "before prepare: elements=%d visited=%d p50=%.1fms", before.count, before.stats.visited, before.p50))
         let compat = AppCompat()
         let o = compat.prepare(pid: app.processIdentifier, bundleID: app.bundleIdentifier, bundleURL: app.bundleURL, voiceOverRunning: false)
         print("prepare -> \(o)")
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(nanoseconds: o == .setEnhanced ? 2_300_000_000 : 200_000_000)
         guard let w2 = focusedWindow(app) else { return }
         let after = await runScan(w2, naive: false, repeatN: 3, quiet: true)
         print(String(format: "after:  elements=%d visited=%d p50=%.1fms", after.count, after.stats.visited, after.p50))

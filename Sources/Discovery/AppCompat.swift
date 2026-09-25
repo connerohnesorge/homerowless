@@ -1,4 +1,5 @@
 import Foundation
+import ApplicationServices
 import AXCore
 
 /// Chromium / Electron detection and the AXManualAccessibility handshake. Scoped strictly to the frontmost app.
@@ -40,8 +41,14 @@ public final class AppCompat: @unchecked Sendable {
         let app = AXElement.application(pid: pid)
         var outcome: Outcome = .notNeeded
         if Self.isChromiumLike(bundleURL: bundleURL) {
-            _ = app.set(.manualAccessibility, bool: true)
-            outcome = .setManual
+            // Electron honors AXManualAccessibility. Chrome and other Chromium browsers reject it as unsupported and only
+            // build the web tree for AXEnhancedUserInterface, which they debounce for ~2s (chrome_browser_application_mac.mm).
+            if app.set(.manualAccessibility, bool: true) == .success {
+                outcome = .setManual
+            } else if !voiceOverRunning {
+                _ = app.set(.enhancedUserInterface, bool: true)
+                outcome = .setEnhanced
+            }
         }
         if let b = bundleID, config.enhancedUIBundleIDs.contains(b), !voiceOverRunning {
             _ = app.set(.enhancedUserInterface, bool: true)

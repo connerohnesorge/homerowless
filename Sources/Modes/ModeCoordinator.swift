@@ -180,8 +180,12 @@ public final class ModeCoordinator {
         guard AppCompat.isChromiumLike(bundleURL: app.bundleURL) else { return }
         guard app.bundleIdentifier.map({ !config.excludedBundleIDs.contains($0) }) ?? true else { return }
         warmTask?.cancel()
-        let layout = overlay.layout, scanner = self.scanner, pid = app.processIdentifier
+        let layout = overlay.layout, scanner = self.scanner, pid = app.processIdentifier, compat = self.compat
+        let bundleID = app.bundleIdentifier, bundleURL = app.bundleURL, voiceOver = NSWorkspace.shared.isVoiceOverEnabled
         warmTask = Task.detached(priority: .utility) {
+            // Prepare on activation, not on the hotkey: Chrome waits ~2s after AXEnhancedUserInterface before building the tree.
+            let outcome = compat.prepare(pid: pid, bundleID: bundleID, bundleURL: bundleURL, voiceOverRunning: voiceOver)
+            if outcome == .setEnhanced { try? await Task.sleep(nanoseconds: 2_300_000_000) }
             for attempt in 0..<3 {
                 if Task.isCancelled { return }
                 let ax = AXApplication(pid: pid)
